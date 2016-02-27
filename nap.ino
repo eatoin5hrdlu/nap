@@ -84,10 +84,12 @@ int ledPin = 13;
 File myFile;
 boolean playing;
 byte lastSample;
+int dataCount;
 
 unsigned char nextByte() {
 	if (myFile.available()) {
 	    lastSample = myFile.read();
+	    dataCount++;
 	    return lastSample;
 	 } else {
 	   playing = false;
@@ -96,17 +98,23 @@ unsigned char nextByte() {
 
 void findData()
 {
+int count = 0;
 int state;
 char c;
   if (myFile) {
     state = 0;
     while (myFile.available() and state < 8 ) {
+    	count++;
   	c = myFile.read();
 	if (state > 3 )                  state++;
 	else if (state == 0 && c == 'd') state = 1;
 	else if (state == 1 && c == 'a') state = 2;
 	else if (state == 2 && c == 't') state = 3;
 	else if (state == 3 && c == 'a') state = 4;
+    }
+    if (state == 8) {
+       Serial.print(count);
+       Serial.println(" bytes: found start of audio data");
     }
   } else
   Serial.println("error opening audio1.wav");
@@ -161,8 +169,11 @@ void startPlayback()
 
     // Enable interrupt when TCNT1 == OCR1A (p.136)
     TIMSK1 |= _BV(OCIE1A);
+    playing = true;
     sei();
 }
+
+boolean once;
 
 void setup()
 {
@@ -170,7 +181,8 @@ void setup()
   Serial.begin(9600);
    while (!Serial) {;} // wait for serial port connection(Leonardo only)
 #endif
-
+  once = true;
+  dataCount = 0;
   // CS=4 output(default) Even if not used as the CS pin, the hardware SS pin
   // (usually 10, Mega 53) must be output or SD lib functions will not work. 
   pinMode(10, OUTPUT);
@@ -188,7 +200,17 @@ void setup()
 
 void loop()
 {
-    while (true);
+    if (once) {
+       Serial.print("Starting audio at ");
+       Serial.print(millis());
+       Serial.println("ms");
+       while (playing)
+       	     delay(100);
+       Serial.print("finished audio at ");
+       Serial.print(millis());
+       Serial.println("ms");
+       once = false;
+    }
 }
 
 
