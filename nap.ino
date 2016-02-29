@@ -35,7 +35,7 @@
 
 #define DEBUG 1
 // Can be either 3 or 11, two PWM outputs connected to Timer 2
-#define speakerPin 10 
+#define speakerPin 3
 
 #if (speakerPin==10)
 #define COMON1 COM2A1
@@ -84,12 +84,15 @@ int ledPin = 13;
 File myFile;
 boolean playing;
 byte lastSample;
-int dataCount;
+int average;
+boolean flash;
 
 unsigned char nextByte() {
 	if (myFile.available()) {
 	    lastSample = myFile.read();
-	    dataCount++;
+	    average = (average + abs(lastSample  - 127))/2;
+	    if (average > 10) flash = true;
+	    else flash = false;
 	    return lastSample;
 	 } else {
 	   playing = false;
@@ -126,6 +129,7 @@ void stopPlayback()
     TCCR1B &= ~_BV(CS10);      // Disable the per-sample timer completely.
     TCCR2B &= ~_BV(CS10);      // Disable the PWM timer.
     digitalWrite(speakerPin, LOW);
+    myFile.close();
 }
 
 
@@ -173,6 +177,17 @@ void startPlayback()
     sei();
 }
 
+long long lastRandom;
+boolean flicker(long long min)
+{
+	if (millis() > lastRandom + min)
+	{
+		lastRandom = millis();
+		flash = random(2);
+		return(flash);
+	}
+}
+
 boolean once;
 
 void setup()
@@ -181,35 +196,52 @@ void setup()
   Serial.begin(9600);
    while (!Serial) {;} // wait for serial port connection(Leonardo only)
 #endif
+  lastRandom = 0;
   once = true;
-  dataCount = 0;
   // CS=4 output(default) Even if not used as the CS pin, the hardware SS pin
   // (usually 10, Mega 53) must be output or SD lib functions will not work. 
   pinMode(10, OUTPUT);
-   
+  pinMode( 9, OUTPUT);
   if (!SD.begin(4))
     Serial.println("SD Card initialization failed!");
-  
-  myFile = SD.open("audio1.wav");
-  findData();  // Scan to audio data, and set global size
-
+  openFile();  
   pinMode(ledPin, OUTPUT);
   digitalWrite(ledPin, HIGH);
   startPlayback();
 }
 
+void openFile()
+{
+  myFile = SD.open("audio1.wav");
+  findData();  // Scan to audio data, and set global size
+}
+
 void loop()
 {
+int i;
     if (once) {
        Serial.print("Starting audio at ");
        Serial.print(millis());
        Serial.println("ms");
-       while (playing)
-       	     delay(100);
+       while (playing) {
+       	     delay(50);
+	     digitalWrite(9,flash&random(2));
+       }
        Serial.print("finished audio at ");
        Serial.print(millis());
        Serial.println("ms");
        once = false;
+    }
+    else {
+	for(int i=0;i<120;i++) {
+		delay(random(20,40));
+		digitalWrite(9, flicker(50UL));
+	}
+	openFile();
+	digitalWrite(9, flicker(50UL));
+	startPlayback();
+	digitalWrite(9, flicker(50UL));
+	once = true;
     }
 }
 
