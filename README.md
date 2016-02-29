@@ -3,7 +3,8 @@ Nano Audio Player
 
 Prepare the 8-bit audio file using sox with the following command:
 
-sox infile.wav -b 8 -r 8000 audio1.wav
+#   <input>     MONO  8-bit   8Khz    <output>
+sox infile.wav  -c 1  -b 8  -r 8000   audio1.wav
 
 put the file(s) audio[1-N].wav onto the SD card and the Nano will play the file when the corresponding input pin is brought to ground.
 
